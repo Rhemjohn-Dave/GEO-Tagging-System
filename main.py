@@ -517,5 +517,73 @@ def delete_location(location_id):
         print(f"DEBUG: Error in delete_location: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
 
+@app.route("/api/share-location/<int:location_id>", methods=["GET"])
+def share_location(location_id):
+    try:
+        # Get location data
+        location = Location.query.get_or_404(location_id)
+        
+        # Get weather data for this location
+        weather_data = WeatherData.query.filter_by(location_id=location_id).first()
+        
+        # Get current weather from API
+        weather_api_key = os.getenv('WEATHER_API_KEY')
+        current_weather = {}
+        
+        if weather_api_key:
+            try:
+                response = requests.get(
+                    f"https://api.weatherapi.com/v1/current.json",
+                    params={
+                        "key": weather_api_key,
+                        "q": f"{location.latitude},{location.longitude}",
+                        "aqi": "no"
+                    }
+                )
+                if response.ok:
+                    weather_info = response.json()
+                    current_weather = {
+                        "temp": weather_info['current']['temp_c'],
+                        "condition": weather_info['current']['condition']['text'],
+                        "humidity": weather_info['current']['humidity'],
+                        "wind_speed": weather_info['current']['wind_kph']
+                    }
+            except Exception as e:
+                print(f"Error fetching current weather: {str(e)}")
+        
+        # Get risk assessment
+        risk_response = requests.post(
+            f"{request.host_url.rstrip('/')}/api/predict-flood-risk",
+            json={
+                "location_id": location_id,
+                "latitude": location.latitude,
+                "longitude": location.longitude
+            }
+        )
+        
+        risk_data = {}
+        if risk_response.ok:
+            risk_data = risk_response.json()
+        
+        # Create shareable data
+        share_data = {
+            "location": {
+                "name": location.name,
+                "latitude": location.latitude,
+                "longitude": location.longitude,
+                "description": location.description
+            },
+            "weather": current_weather,
+            "risk": risk_data,
+            "timestamp": datetime.now().isoformat(),
+            "app_name": "GEO-Tagging System"
+        }
+        
+        return jsonify(share_data)
+        
+    except Exception as e:
+        print(f"Error in share_location: {str(e)}")
+        return jsonify({"error": "Failed to generate share data"}), 500
+
 if __name__ == "__main__":
     app.run(debug=True) 

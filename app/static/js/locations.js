@@ -68,6 +68,10 @@ function renderLocations() {
                   <i class="fas fa-map me-2"></i>View on Map
                 </a></li>
                 <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="#" onclick="shareLocation(${location.id})">
+                  <i class="fas fa-share-alt me-2"></i>Share Location
+                </a></li>
+                <li><hr class="dropdown-divider"></li>
                 <li><a class="dropdown-item text-danger" href="#" onclick="deleteLocation(${location.id})">
                   <i class="fas fa-trash-alt me-2"></i>Delete
                 </a></li>
@@ -89,10 +93,19 @@ function renderLocations() {
               </div>
             ` : ''}
           </div>
+          <div class="sharing-buttons mt-3" id="sharing-container-${location.id}"></div>
         </div>
       </div>
     `;
     locationsList.appendChild(locationElement);
+    
+    // Add sharing buttons after card is created
+    setTimeout(() => {
+      const sharingContainer = locationElement.querySelector(`#sharing-container-${location.id}`);
+      if (sharingContainer) {
+        addSharingToPopup(location.id, sharingContainer);
+      }
+    }, 100);
   });
 }
 
@@ -139,6 +152,10 @@ async function handleLocationSearch() {
                   <i class="fas fa-map me-2"></i>View on Map
                 </a></li>
                 <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="#" onclick="shareLocation(${location.id})">
+                  <i class="fas fa-share-alt me-2"></i>Share Location
+                </a></li>
+                <li><hr class="dropdown-divider"></li>
                 <li><a class="dropdown-item text-danger" href="#" onclick="deleteLocation(${location.id})">
                   <i class="fas fa-trash-alt me-2"></i>Delete
                 </a></li>
@@ -160,10 +177,19 @@ async function handleLocationSearch() {
               </div>
             ` : ''}
           </div>
+          <div class="sharing-buttons mt-3" id="sharing-container-${location.id}"></div>
         </div>
       </div>
     `;
     locationsList.appendChild(locationElement);
+    
+    // Add sharing buttons after card is created
+    setTimeout(() => {
+      const sharingContainer = locationElement.querySelector(`#sharing-container-${location.id}`);
+      if (sharingContainer) {
+        addSharingToPopup(location.id, sharingContainer);
+      }
+    }, 100);
   });
 }
 
@@ -190,6 +216,61 @@ async function deleteLocation(locationId) {
     showError('Failed to delete location');
   } finally {
     hideLoading();
+  }
+}
+
+async function shareLocation(locationId) {
+  try {
+    const shareData = await socialSharing.fetchShareData(locationId);
+    if (shareData) {
+      // Create a modal to show sharing options
+      const modal = document.createElement('div');
+      modal.className = 'modal fade';
+      modal.id = 'shareModal';
+      modal.innerHTML = `
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Share Location</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              <div class="share-preview mb-3">
+                <h6>${shareData.location.name}</h6>
+                <p class="text-muted">${shareData.location.latitude.toFixed(4)}, ${shareData.location.longitude.toFixed(4)}</p>
+                ${shareData.weather && Object.keys(shareData.weather).length > 0 ? `
+                  <p><i class="fas fa-temperature-high"></i> ${shareData.weather.temp}°C, ${shareData.weather.condition}</p>
+                ` : ''}
+                ${shareData.risk && shareData.risk.risk_level ? `
+                  <p><i class="fas fa-exclamation-triangle"></i> Risk: ${shareData.risk.risk_level.toUpperCase()}</p>
+                ` : ''}
+              </div>
+              <div id="modal-sharing-buttons"></div>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+      
+      const modalInstance = new bootstrap.Modal(modal);
+      modalInstance.show();
+      
+      // Add sharing buttons to modal
+      const modalSharingContainer = modal.querySelector('#modal-sharing-buttons');
+      if (modalSharingContainer) {
+        const sharingButtons = socialSharing.createSharingButtons(shareData);
+        modalSharingContainer.innerHTML = sharingButtons;
+      }
+      
+      // Remove modal from DOM after it's hidden
+      modal.addEventListener('hidden.bs.modal', () => {
+        document.body.removeChild(modal);
+      });
+    }
+  } catch (error) {
+    console.error('Error sharing location:', error);
+    showError('Failed to share location');
   }
 }
 

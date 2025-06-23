@@ -720,9 +720,22 @@ async function handleMapClick(e) {
                 <button class="view-details-btn" onclick="switchToForecastTab(${lat}, ${lng})">
                     <i class="fas fa-info-circle"></i> View Full Details
                 </button>
+                
+                <div id="sharing-container-${location.id}"></div>
             </div>
         `);
         marker.openPopup();
+
+        // Add sharing buttons after popup is created
+        setTimeout(() => {
+            const popupElement = document.querySelector('.leaflet-popup-content');
+            if (popupElement) {
+                const sharingContainer = popupElement.querySelector(`#sharing-container-${location.id}`);
+                if (sharingContainer) {
+                    addSharingToPopup(location.id, sharingContainer);
+                }
+            }
+        }, 100);
 
         // Create details content for the location list
         const detailsContent = `
@@ -810,13 +823,27 @@ function addLocationMarker(location) {
   });
 
   marker.bindPopup(`
-        <h3>${location.name}</h3>
-        <p>${location.description || ""}</p>
-        <p>Elevation: ${location.elevation}m</p>
+        <div class="map-popup">
+            <h3>${location.name}</h3>
+            <p>${location.description || ""}</p>
+            <p>Elevation: ${location.elevation}m</p>
+            <div id="sharing-container-${location.id}"></div>
+        </div>
     `);
 
   marker.on("click", () => {
     fetchLocationData(location.id);
+    
+    // Add sharing buttons after popup is created
+    setTimeout(() => {
+      const popupElement = document.querySelector('.leaflet-popup-content');
+      if (popupElement) {
+        const sharingContainer = popupElement.querySelector(`#sharing-container-${location.id}`);
+        if (sharingContainer) {
+          addSharingToPopup(location.id, sharingContainer);
+        }
+      }
+    }, 100);
   });
 
   return marker;

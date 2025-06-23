@@ -159,6 +159,9 @@ function updateCurrentWeather() {
   currentTemperature.textContent = `${current.temp}°C`;
   currentDescription.textContent = current.weather_description;
   currentLocationName.textContent = currentLocation.name;
+  
+  // Add sharing functionality
+  addSharingToForecast();
 }
 
 function updateForecast() {
@@ -349,4 +352,81 @@ async function predictFloodRisk() {
 }
 
 // Add event listener for the predict button
-document.getElementById('predictFloodRisk').addEventListener('click', predictFloodRisk); 
+document.getElementById('predictFloodRisk').addEventListener('click', predictFloodRisk);
+
+// Add sharing functionality to forecast page
+async function addSharingToForecast() {
+  if (!currentLocation) return;
+  
+  try {
+    // Create share data from current location and weather
+    const shareData = {
+      location: {
+        name: currentLocation.name,
+        latitude: currentLocation.lat,
+        longitude: currentLocation.lng,
+        description: `Weather forecast for ${currentLocation.name}`
+      },
+      weather: weatherData?.current ? {
+        temp: weatherData.current.temp,
+        condition: weatherData.current.weather_description,
+        humidity: weatherData.current.humidity,
+        wind_speed: weatherData.current.wind_speed
+      } : {},
+      risk: null, // Will be populated if available
+      timestamp: new Date().toISOString(),
+      app_name: "GEO-Tagging System"
+    };
+    
+    // Check if we have a location ID (if this location is saved)
+    const locationsResponse = await fetch('/api/locations');
+    if (locationsResponse.ok) {
+      const locations = await locationsResponse.json();
+      const savedLocation = locations.find(loc => 
+        Math.abs(loc.lat - currentLocation.lat) < 0.001 && 
+        Math.abs(loc.lng - currentLocation.lng) < 0.001
+      );
+      
+      if (savedLocation) {
+        // Get risk data for saved location
+        const riskResponse = await fetch('/api/predict-flood-risk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            location_id: savedLocation.id,
+            latitude: currentLocation.lat,
+            longitude: currentLocation.lng
+          })
+        });
+        
+        if (riskResponse.ok) {
+          shareData.risk = await riskResponse.json();
+        }
+      }
+    }
+    
+    // Add sharing buttons to the current weather section
+    const currentWeatherSection = document.querySelector('.current-weather-section');
+    if (currentWeatherSection) {
+      // Remove existing sharing buttons if any
+      const existingSharing = currentWeatherSection.querySelector('.sharing-buttons');
+      if (existingSharing) {
+        existingSharing.remove();
+      }
+      
+      // Create sharing container
+      const sharingContainer = document.createElement('div');
+      sharingContainer.className = 'sharing-buttons mt-3';
+      sharingContainer.innerHTML = socialSharing.createSharingButtons(shareData);
+      
+      // Add to the first card in the current weather section
+      const firstCard = currentWeatherSection.querySelector('.card');
+      if (firstCard) {
+        firstCard.appendChild(sharingContainer);
+      }
+    }
+    
+  } catch (error) {
+    console.error('Error adding sharing to forecast:', error);
+  }
+} 
